@@ -20,6 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
+from sklearn.preprocessing import StandardScaler
 
 meo_data= pd.read_csv("beijing_17_18_meo.csv")
 aq_data= pd.read_csv("beijing_17_18_aq.csv")
@@ -45,8 +46,15 @@ for i, col in enumerate(meo_data[quant_columns]):
     
 #Remove outliers eg. Remove any values from the quant columns that are 3 sd from the mean
 meo_data= meo_data[(np.abs(stats.zscore(meo_data[quant_columns])) < 3).all(axis=1)]
+    
+#Scale all the continuos columns 
+meo_data1= meo_data[meo_data.columns.difference(quant_columns)]
+scaler= StandardScaler()
+scaled_cols  = pd.DataFrame(scaler.fit_transform(meo_data[quant_columns]),columns=quant_columns)
+meo_data= pd.merge(meo_data1, scaled_cols, left_index=True, right_index=True)
 
-#Recheck distribution after removing outliers
+#Recheck distribution after removing outliers and scaling columns
 for i, col in enumerate(meo_data[quant_columns]):
     plt.figure(i)
     sns.distplot(meo_data[col])
+    
