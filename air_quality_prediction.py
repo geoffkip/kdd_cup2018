@@ -26,6 +26,8 @@ from datetime import datetime
 meo_data= pd.read_csv("beijing_17_18_meo.csv")
 aq_data= pd.read_csv("beijing_17_18_aq.csv")
 
+##Meteorlogical data feature engineering
+
 meo_data.describe()
 meo_data.dtypes
 missing(meo_data)
@@ -93,7 +95,7 @@ categorical_data= pd.get_dummies(categorical_data, columns=["station_id"])
 categorical_data= pd.get_dummies(categorical_data, columns=["weather"])
 
 # Drop categorical variables from meo_data
-meo_data= meo_data.drop(["weather","utc_time"], axis=1)
+meo_data= meo_data.drop(["weather"], axis=1)
 
 # Code type of station
 
@@ -138,5 +140,13 @@ meo_data['station_near_traffic']=np.where(meo_data['station_id'].isin(["qianmen_
 
 meo_data_prepped= pd.merge(meo_data, categorical_data, left_index=True, right_index=True)
 
+# Split station id for merging later to air quality
+meo_data_prepped["station_id"]= meo_data_prepped["station_id"].apply(lambda x: x.split("_")[0])
 
+# Air quality data feature engineering
+aq_data_train= aq_data.drop(["PM2.5" , "PM10", "O3"], axis=1)
+aq_data_train["station_id"]= aq_data_train["stationId"].apply(lambda x: x.split("_")[0])
+aq_data_train= aq_data_train.drop(["stationId"],axis=1)
 
+train_data = pd.merge(meo_data_prepped, aq_data_train,  how='left', 
+                     left_on=['station_id','utc_time'], right_on = ['station_id','utc_time'])
