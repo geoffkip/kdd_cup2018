@@ -95,6 +95,47 @@ categorical_data= pd.get_dummies(categorical_data, columns=["weather"])
 # Drop categorical variables from meo_data
 meo_data= meo_data.drop(["weather","utc_time"], axis=1)
 
+# Code type of station
+
+meo_data['urban_station']=np.where(meo_data['station_id'].isin(["dongsi_meo",
+"tiantan_meo",
+"guanyuan_meo",
+"wanshouxigong_meo",
+"aotizhongxin_meo",
+"nongzhanguan_meo",
+"wanliu_meo",
+"beibuxinqu_meo",
+"zhiwuyuan_meo",
+"fengtaihuayuan_meo",
+"yungang_meo",
+"gucheng_meo"]),1,0)
+    
+meo_data['suburban_station']=np.where(meo_data['station_id'].isin(["fangshan_meo",
+"daxing_meo",
+"yizhuang_meo",
+"tongzhou_meo",
+"shunyi_meo",
+"pingchang_meo",
+"mentougou_meo",
+"pinggu_meo",
+"huairou_meo",
+"miyun_meo",
+"yanqin_meo"]),1,0)
+    
+meo_data['other_station']=np.where(meo_data['station_id'].isin(["dingling_meo",
+"badaling_meo",
+"miyunshuiku_meo",
+"donggaocun_meo",
+"yongledian_meo",
+"yufa_meo",
+"liulihe_meo"]),1,0)
+    
+meo_data['station_near_traffic']=np.where(meo_data['station_id'].isin(["qianmen_meo",
+"yongdingmennei_meo",
+"xizhimenbei_meo",
+"nansanhuan_meo",
+"dongsihuan_meo"]),1,0)
+
 meo_data_prepped= pd.merge(meo_data, categorical_data, left_index=True, right_index=True)
 
 
