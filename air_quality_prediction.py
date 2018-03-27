@@ -14,7 +14,31 @@ def missing(dataset):
 def frequency(dataset):
         for col in dataset:
             print(dataset.groupby(col).size())
+                   
+def engineer_dates(dataset, date):
+    """
+    Features engineers several date features based on a date timestamp
+    Params
+    dataset: dataset to create date features
+    date: string date to create the date features
+    """
+    day_of_week = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).weekday()
+    month = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).month
+    week_number = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).strftime('%V')
+    # Code seasons
+    seasons = [0,0,1,1,1,2,2,2,3,3,3,0] #dec - feb is winter, then spring, summer, fall etc
+    season = lambda x: seasons[(datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).month-1)]  
+    # sleep: 12-5, 6-9: breakfast, 10-14: lunch, 14-17: dinner prep, 17-21: dinner, 21-23: deserts!
+    times_of_day = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5 ]
+    time_of_day = lambda x: times_of_day[(datetime.strptime(x, "%Y-%m-%d %H:%M:%S").hour)]   
+    # Create new date variables
+    dataset['day_of_week'] = dataset[date].map(day_of_week)
+    dataset['month'] = dataset[date].map(month)
+    dataset['week_number'] = dataset[date].map(week_number)
+    dataset['season'] = dataset[date].map(season)
+    dataset['time_of_day'] = dataset[date].map(time_of_day)
 
+# Import required packages
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,6 +47,7 @@ from scipy import stats
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime
  
+#Read data in
 meo_data= pd.read_csv("beijing_17_18_meo.csv")
 aq_data= pd.read_csv("beijing_17_18_aq.csv")
 
@@ -66,25 +91,7 @@ meo_data= meo_data.drop(["latitude", "longitude"], axis=1)
 categorical_data= meo_data.select_dtypes(include=[np.object])
 
 # Do some feature engineering on dates. I am guessing time of the year plays a big role in air quality
-day_of_week = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).weekday()
-month = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).month
-week_number = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).strftime('%V')
-
-# Code seasons
-seasons = [0,0,1,1,1,2,2,2,3,3,3,0] #dec - feb is winter, then spring, summer, fall etc
-season = lambda x: seasons[(datetime.strptime(x, "%Y-%m-%d %H:%M:%S" ).month-1)]
- 
-# sleep: 12-5, 6-9: breakfast, 10-14: lunch, 14-17: dinner prep, 17-21: dinner, 21-23: deserts!
-times_of_day = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5 ]
-time_of_day = lambda x: times_of_day[(datetime.strptime(x, "%Y-%m-%d %H:%M:%S").hour)]
-
-
-# Create new date variables
-categorical_data['day_of_week'] = categorical_data['utc_time'].map(day_of_week)
-categorical_data['month'] = categorical_data['utc_time'].map(month)
-categorical_data['week_number'] = categorical_data['utc_time'].map(week_number)
-categorical_data['season'] = categorical_data['utc_time'].map(season)
-#categorical_data['time_of_day'] = categorical_data['utc_time'].map(time_of_day)
+engineer_dates(categorical_data,"utc_time")
 categorical_data= categorical_data.drop(["utc_time"],axis=1)
 
 # Do some binary encoding for time variables
@@ -144,9 +151,32 @@ meo_data_prepped= pd.merge(meo_data, categorical_data, left_index=True, right_in
 meo_data_prepped["station_id"]= meo_data_prepped["station_id"].apply(lambda x: x.split("_")[0])
 
 # Air quality data feature engineering
-aq_data_train= aq_data.drop(["PM2.5" , "PM10", "O3"], axis=1)
+aq_data_train= aq_data
+# Find missing values
+missing(aq_data_train)
+
+#Impute missing with mean for now
+aq_data_train["NO2"]= np.where(aq_data_train["NO2"].isnull(),aq_data_train["NO2"].mean(),aq_data_train["NO2"])
+aq_data_train["CO"]= np.where(aq_data_train["CO"].isnull(),aq_data_train["CO"].mean(),aq_data_train["CO"])
+aq_data_train["SO2"]= np.where(aq_data_train["SO2"].isnull(),aq_data_train["SO2"].mean(),aq_data_train["SO2"])
+
+#Standardize and normalize columns
+columns_to_normalize= aq_data_train[["NO2", "CO", "SO2"]].columns
+scaled_cols  = pd.DataFrame(scaler.fit_transform(aq_data_train[columns_to_normalize]),columns=columns_to_normalize)
+aq_data_train1= aq_data_train[aq_data_train.columns.difference(columns_to_normalize)]
+
+aq_data_train= pd.merge(aq_data_train1, scaled_cols, left_index=True, right_index=True)
+
 aq_data_train["station_id"]= aq_data_train["stationId"].apply(lambda x: x.split("_")[0])
 aq_data_train= aq_data_train.drop(["stationId"],axis=1)
+engineer_dates(aq_data_train,"utc_time")
 
 train_data = pd.merge(meo_data_prepped, aq_data_train,  how='left', 
                      left_on=['station_id','utc_time'], right_on = ['station_id','utc_time'])
+
+missing(train_data)
+train_data= train_data.dropna(axis=0, how="any")
+labels= train_data[["PM2.5", "PM10", "O3"]]
+
+# TO DO Train test split
+# Baseline regression models
